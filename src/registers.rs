@@ -1,9 +1,16 @@
-    #[allow(dead_code)]
+#[allow(dead_code)]
 #[allow(non_camel_case_types)]
 #[derive(Copy, Clone)]
 pub enum Register {
     SYS_CTRL1 = 0x04,
     SYS_CTRL2 = 0x05,
+    OV_TRIP = 0x09,
+    UV_TRIP = 0x0A,
+    ADCOFFSET = 0x51,
+    ADCGAIN1 = 0x50,
+    ADCGAIN2 = 0x59,
+    BAT_HI = 0x2A,
+    BAT_LO = 0x2B,
 }
 
 impl Register {
@@ -23,10 +30,8 @@ pub trait RegisterBits {
     fn mask() -> u8;
     //fn from_u8(val: u8) -> Self;
     fn to_u8(&self) -> u8;
-
 }
 
-#[macro_export]
 macro_rules! register_bit {
     ($name: ident, $mask: expr) => {
         pub struct $name {
@@ -112,6 +117,36 @@ macro_rules! register {
             fn value(&self) -> u8 {
                 // The final | 0 here is to make macro expansion easier (or 0 is a noop)
                 $(self.$bit_name.to_u8() | )* 0u8
+            }
+        }
+    };
+}
+
+macro_rules! raw_register {
+    ( $name:ident, $register:ident) => {
+        use $crate::registers::Register::$register;
+
+        pub struct $name {
+            bits: u8
+        }
+
+        impl $crate::registers::RegisterWriter for $name {
+            fn from_u8(val: u8) -> Self {
+                $name {
+                    bits: val
+                }
+            }
+
+            fn register() -> $crate::registers::Register {
+                $register
+            }
+
+            fn update(&mut self, val: u8) {
+                self.bits = val;
+            }
+
+            fn value(&self) -> u8 {
+                self.bits
             }
         }
     };
