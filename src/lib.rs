@@ -10,14 +10,15 @@ use crate::registers::{Register, RegisterWriter};
 pub mod registers;
 pub mod sysctrl1;
 pub mod sysctrl2;
-pub mod uvtrip;
 pub mod adc;
 pub mod bat;
+pub mod protect;
 
 use sysctrl1::SysCtrl1;
 use sysctrl2::SysCtrl2;
 use adc::{AdcOffset, AdcGain1, AdcGain2};
 use bat::{BatHi, BatLo};
+use protect::UvTrip;
 
 pub struct BQ76920<I2C> {
     addr: u8,
@@ -30,6 +31,18 @@ impl<I2C, E> BQ76920<I2C> where I2C: WriteRead<Error=E> + Write<Error=E> {
         // TODO: Configure device
 
         Ok(BQ76920 { addr, i2c, adccal: None })
+    }
+
+    pub fn set_uvtrip(&mut self, millivolts: i32) -> Result<i32, E> {
+        let adccal = self.adccal();
+
+        let uv_trip_full = ((millivolts as f32 - (adccal.offset as f32)) * 1000f32) / (adccal.gain as f32);
+
+        let uv_trip = (uv_trip_full as u32 >> 4) & 0b0011111111;
+
+        self.modify(|w: &mut UvTrip| {
+            w.update(uv_trip as u8);
+        }).map(|_| millivolts)
     }
 
     pub fn adccal(&mut self) -> AdcCalibration {
