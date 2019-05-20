@@ -35,7 +35,7 @@ pub trait RegisterBits {
 macro_rules! register_bit {
     ($name: ident, $mask: expr) => {
         pub struct $name {
-            bit: bool
+            bit: bool,
         }
 
         impl From<u8> for $name {
@@ -127,14 +127,12 @@ macro_rules! raw_register {
         use $crate::registers::Register::$register;
 
         pub struct $name {
-            bits: u8
+            bits: u8,
         }
 
         impl $crate::registers::RegisterWriter for $name {
             fn from_u8(val: u8) -> Self {
-                $name {
-                    bits: val
-                }
+                $name { bits: val }
             }
 
             fn register() -> $crate::registers::Register {

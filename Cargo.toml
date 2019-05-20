@@ -6,10 +6,6 @@ edition = "2018"
 
 [dependencies]
 
-[dependencies.shared-bus]
-version = "0.1.4"
-features = ["cortexm"]
-
 [dependencies.embedded-hal]
 version = "0.2.2"
 features = ["unproven"]

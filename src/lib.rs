@@ -1,52 +1,60 @@
 #![no_std]
 
-use core::ptr::read;
-
 use embedded_hal::blocking::i2c::{Write, WriteRead};
 
-use crate::registers::{Register, RegisterWriter};
+use adc::{AdcGain1, AdcGain2, AdcOffset};
+use bat::{BatHi, BatLo};
+use protect::UvTrip;
+use sysctrl1::SysCtrl1;
+use sysctrl2::SysCtrl2;
+
+use crate::registers::RegisterWriter;
 
 #[macro_use]
 pub mod registers;
-pub mod sysctrl1;
-pub mod sysctrl2;
 pub mod adc;
 pub mod bat;
 pub mod protect;
-
-use sysctrl1::SysCtrl1;
-use sysctrl2::SysCtrl2;
-use adc::{AdcOffset, AdcGain1, AdcGain2};
-use bat::{BatHi, BatLo};
-use protect::UvTrip;
+pub mod sysctrl1;
+pub mod sysctrl2;
 
 pub struct BQ76920<I2C> {
     addr: u8,
     i2c: I2C,
-    adccal: Option<AdcCalibration>
+    adccal: Option<AdcCalibration>,
 }
 
-impl<I2C, E> BQ76920<I2C> where I2C: WriteRead<Error=E> + Write<Error=E> {
+impl<I2C, E> BQ76920<I2C>
+where
+    I2C: WriteRead<Error = E> + Write<Error = E>,
+{
     pub fn new(addr: u8, i2c: I2C) -> Result<Self, E> {
         // TODO: Configure device
 
-        Ok(BQ76920 { addr, i2c, adccal: None })
+        Ok(BQ76920 {
+            addr,
+            i2c,
+            adccal: None,
+        })
     }
 
     pub fn set_uvtrip(&mut self, millivolts: i32) -> Result<i32, E> {
         let adccal = self.adccal();
 
-        let uv_trip_full = ((millivolts as f32 - (adccal.offset as f32)) * 1000f32) / (adccal.gain as f32);
+        let uv_trip_full =
+            ((millivolts as f32 - (adccal.offset as f32)) * 1000f32) / (adccal.gain as f32);
 
         let uv_trip = (uv_trip_full as u32 >> 4) & 0b0011111111;
 
         self.modify(|w: &mut UvTrip| {
             w.update(uv_trip as u8);
-        }).map(|_| millivolts)
+        })
+        .map(|_| millivolts)
     }
 
     pub fn adccal(&mut self) -> AdcCalibration {
-        self.adccal.or_else(|| self.read_adc().ok())
+        self.adccal
+            .or_else(|| self.read_adc().ok())
             .expect("Could not load ADC calibration")
     }
 
@@ -60,7 +68,10 @@ impl<I2C, E> BQ76920<I2C> where I2C: WriteRead<Error=E> + Write<Error=E> {
         let gain2masked = (gain2.value() & 0b11100000) >> 5;
         let gain = (gain1masked | gain2masked) as u16 + 365u16;
 
-        Ok(AdcCalibration { gain, offset: offset.value() as i8})
+        Ok(AdcCalibration {
+            gain,
+            offset: offset.value() as i8,
+        })
     }
 
     pub fn bat_voltage(&mut self) -> Result<i32, E> {
@@ -71,7 +82,8 @@ impl<I2C, E> BQ76920<I2C> where I2C: WriteRead<Error=E> + Write<Error=E> {
 
         // Datasheet section 7.3.1.1.6
         // Offset is in mv, ADC is in uV
-        let uv = 4 * self.adccal().gain as i32 * adcval as i32 + (3 * 1000 * self.adccal().offset as i32);
+        let uv = 4 * self.adccal().gain as i32 * adcval as i32
+            + (3 * 1000 * self.adccal().offset as i32);
 
         Ok(uv / 1000)
     }
@@ -94,7 +106,11 @@ impl<I2C, E> BQ76920<I2C> where I2C: WriteRead<Error=E> + Write<Error=E> {
         })
     }
 
-    pub fn write<F, W>(&mut self, f: F) -> Result<W, E> where F: FnOnce(&mut W), W: RegisterWriter {
+    pub fn write<F, W>(&mut self, f: F) -> Result<W, E>
+    where
+        F: FnOnce(&mut W),
+        W: RegisterWriter,
+    {
         let mut writer = W::from_u8(0);
 
         f(&mut writer);
@@ -105,7 +121,11 @@ impl<I2C, E> BQ76920<I2C> where I2C: WriteRead<Error=E> + Write<Error=E> {
         Ok(writer)
     }
 
-    pub fn modify<F, W>(&mut self, f: F) -> Result<W, E> where F: FnOnce(&mut W), W: RegisterWriter {
+    pub fn modify<F, W>(&mut self, f: F) -> Result<W, E>
+    where
+        F: FnOnce(&mut W),
+        W: RegisterWriter,
+    {
         let mut r = self.read()?;
         f(&mut r);
 
@@ -115,7 +135,10 @@ impl<I2C, E> BQ76920<I2C> where I2C: WriteRead<Error=E> + Write<Error=E> {
         Ok(r)
     }
 
-    pub fn read<W>(&mut self) -> Result<W, E> where W: RegisterWriter {
+    pub fn read<W>(&mut self) -> Result<W, E>
+    where
+        W: RegisterWriter,
+    {
         let cmd: [u8; 1] = [W::register().addr()];
         let mut buf: [u8; 1] = [0; 1];
 
@@ -124,7 +147,11 @@ impl<I2C, E> BQ76920<I2C> where I2C: WriteRead<Error=E> + Write<Error=E> {
         Ok(W::from_u8(buf[0]))
     }
 
-    fn read16<WH, WL>(&mut self) -> Result<(WH, WL), E> where WH: RegisterWriter, WL: RegisterWriter {
+    fn read16<WH, WL>(&mut self) -> Result<(WH, WL), E>
+    where
+        WH: RegisterWriter,
+        WL: RegisterWriter,
+    {
         //TODO: we should be able to do this with address auto inc
 
         let cmdh: [u8; 1] = [WH::register().addr()];
@@ -134,7 +161,7 @@ impl<I2C, E> BQ76920<I2C> where I2C: WriteRead<Error=E> + Write<Error=E> {
         self.i2c.write_read(self.addr, &cmdh, &mut buf)?;
         let h = buf[0].clone();
 
-        self.i2c.write_read(self.addr, &cmdl, &mut buf);
+        self.i2c.write_read(self.addr, &cmdl, &mut buf)?;
         let l = buf[0].clone();
 
         Ok((WH::from_u8(h), WL::from_u8(l)))
@@ -144,5 +171,5 @@ impl<I2C, E> BQ76920<I2C> where I2C: WriteRead<Error=E> + Write<Error=E> {
 #[derive(Copy, Clone, Debug)]
 pub struct AdcCalibration {
     gain: u16,
-    offset: i8
+    offset: i8,
 }
