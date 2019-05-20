@@ -1,0 +1,16 @@
+image: ubuntu/lts
+
+packages:
+  - gcc-arm-embedded
+
+sources:
+  - https://github.com/zklapow/BQ76920.git
+
+tasks:
+  setup: |
+    curl https://sh.rustup.rs -sSf | sh
+    rustup target add thumbv6m-none-eabi
+    rustup update
+    cargo install cross
+  build: |
+    cross build --target thumbv6m-none-eabi
