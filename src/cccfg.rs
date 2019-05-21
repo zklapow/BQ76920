@@ -1,0 +1,1 @@
+raw_register!(CcCfg, CC_CFG);

@@ -17,6 +17,9 @@ pub mod bat;
 pub mod protect;
 pub mod sysctrl1;
 pub mod sysctrl2;
+pub mod cccfg;
+
+use cccfg::CcCfg;
 
 pub struct BQ76920<I2C> {
     addr: u8,
@@ -31,11 +34,18 @@ where
     pub fn new(addr: u8, i2c: I2C) -> Result<Self, E> {
         // TODO: Configure device
 
-        Ok(BQ76920 {
+        // See Table 7-14, CC_CFG should be set to 0x19 at start
+        let mut bq = BQ76920 {
             addr,
             i2c,
             adccal: None,
-        })
+        };
+
+        bq.write(|w: &mut CcCfg| {
+            w.update(0x19 as u8);
+        })?;
+
+        Ok(bq)
     }
 
     pub fn set_uvtrip(&mut self, millivolts: i32) -> Result<i32, E> {

@@ -11,6 +11,7 @@ pub enum Register {
     ADCGAIN2 = 0x59,
     BAT_HI = 0x2A,
     BAT_LO = 0x2B,
+    CC_CFG = 0x0B,
 }
 
 impl Register {
