@@ -42,7 +42,7 @@ where
         };
 
         bq.write(|w: &mut CcCfg| {
-            w.update(0x19 as u8);
+            w.val().update(0x19 as u8);
         })?;
 
         Ok(bq)

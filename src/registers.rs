@@ -33,6 +33,51 @@ pub trait RegisterBits {
     fn to_u8(&self) -> u8;
 }
 
+macro_rules! register_val {
+    ($name: ident, $lsb: expr, $len: expr) => {
+
+        pub struct $name {
+            val: u8,
+        }
+
+        impl From<u8> for $name {
+            fn from(val: u8) -> Self {
+                let masked_val = val & $name::mask();
+                let shifted = masked_val >> $lsb;
+
+                $name { val: shifted }
+            }
+        }
+
+        impl $crate::registers::RegisterBits for $name {
+            fn mask() -> u8 {
+                let mut mask = 0;
+                for i in 0..$len {
+                    mask = mask & (1 << $lsb + i);
+                }
+
+                mask
+            }
+
+            fn to_u8(&self) -> u8 {
+                let shifted = self.val << $lsb;
+
+                shifted & $name::mask()
+            }
+        }
+
+        impl $name {
+            pub fn value(&self) -> u8 {
+                self.val
+            }
+
+            pub fn update(&mut self, val: u8) {
+                self.val = val;
+            }
+        }
+    };
+}
+
 macro_rules! register_bit {
     ($name: ident, $mask: expr) => {
         pub struct $name {
